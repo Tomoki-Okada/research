@@ -44,13 +44,13 @@ def Delta_X_trend_0():
     return (delta_0*m_1/2*rho*(2+rho*T*(1+zeta(ita*T)+nu*rho*T*omega(ita*T)))-(1+rho*T)*q*D_0)/((2+rho*T)*(1-epsilon))
     
 def Delta_X_trend_T():
-    first_term = delta_0*m_1/(2*rho)*((2+rho*T*(1+zeta(ita*T)+nu*rho*T*omega(ita*T)))/(2*rho*T)-2rho*Phi_ita(0,T)-2*np.exp(-beta*T))
+    first_term = delta_0*m_1/(2*rho)*((2+rho*T*(1+zeta(ita*T)+nu*rho*T*omega(ita*T)))/(2*rho*T)-2*rho*Phi_ita(0,T)-2*np.exp(-beta*T))
     second_term = q*D_0/(2+rho*T)
     return (first_term + second_term)/(1 - epsilon)
 
 def Delta_X_trend_t(n):
     dt = T/n
-    first_term = delta_0*m_1/(2*rho)*((2+rho*T*(1+zeta(ita*T)+nu*rho*T*omega(ita*T)))/(2*rho*T)-2rho*Phi_ita(0,T)-2*phi_ita(t)*np.exp(-beta*T))*rho*dt 
+    first_term = delta_0*m_1/(2*rho)*((2+rho*T*(1+zeta(ita*T)+nu*rho*T*omega(ita*T)))/(2*rho*T)-2*rho*Phi_ita(0,T)-2*phi_ita(t)*np.exp(-beta*T))*rho*dt 
     second_term = q*D_0/(2+rho*T)*rho*dt
     return (first_term + second_term)/(1 - epsilon)
     
