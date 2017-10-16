@@ -24,6 +24,7 @@ class MIH():
         self.nu = data['nu']
         self.epsilon = data['epsilon']
         self.rho = data['rho']
+        self.iota_s = data['iota_s']
         self.iota_c = data['iota_c']
         self.kappa_inf = data['kappa_inf']
         self.ita = data['ita']
@@ -32,6 +33,10 @@ class MIH():
         self.alpha_tilda = data['alpha_tilda']
         self.alpha_2 = data['alpha_2']
         self.beta = data['beta']
+        self.Delta_N = [0,3,5,3,-1,-0,1,3,7,-1,3]
+        self.tau = [0,1,2,3,4,5,6,7,8,9,10]
+        self.kappa_plus = [2,4,2,4,5,6,4,8,8,2,1]
+        self.kappa_minus = [2,4,4,6,2,4,7,8,2,4,2]
     
     def zeta(self, y):
         if y == 0:
@@ -134,11 +139,15 @@ class MIH():
                     *(1-self.nu*self.rho/self.ita))*(self.L(self.rho,self.alpha,self.T-s)-self.L(self.rho,self.alpha,self.T-t))
         return first_term + second_term + third_term
         
-    def delta_t():
-        return delta_0*np.exp(-beta*t)+np.exp(-beta*t)*Theta(chi_t)
+    def delta_t(self, t):
+        return self.kappa_plus[t] - self.kappa_minus[t]
         
-    def Theta(i):
-        return None
+    def Theta_i(self, i):
+        Delta_I = (self.iota_s - self.iota_c)*self.Delta_N
+        _sum = 0
+        for k in range(i):
+            _sum += np.exp(self.beta*self.tau[k])*Delta_I[i]
+        return _sum
         
     def Delta_X_0_OW(self):
         return -self.x_0/(2*self.rho*self.T)
@@ -170,18 +179,39 @@ class MIH():
         second_term = self.q*self.D_0/(2+self.rho*self.T)*self.rho*dt
         return (first_term + second_term)/(1 - self.epsilon)
         
-    def Delta_X_dyn_0():
+    def Delta_X_dyn_0(self):
         return 0
         
-    def Delta_X_dyn_T():
-        return None
+    def Delta_X_dyn_T(self):
+        Delta_I = (self.iota_s - self.iota_c)*self.Delta_N
+        first_term = -self.m_1(self.Theta_i(self.T/self.n)*self.Phi_ita(self.T/self.n,self.T) \
+                    +sum(self.Theta_i(i)*self.Phi_ita(self.tau[i],self.tau[i+1]) for i in range(0, self.T/self.n-1)))
+        second_term = sum((1-self.nu)*self.Delta_N[i]/(2+self.rho*(self.T-self.tau[i])) for i in range(len(self.tau)))
+        third_term = self.m_1/(2*self.rho)*sum((2+self.rho*(self.T-self.tau[i]) \
+                    *(1+self.zeta(self.ita*(self.T-self.tau[i])+self.nu*self.rho*(self.T-self.tau[i]) \
+                    *self.omega(self.ita*(self.T-self.tau[i])))))/(2+self.rho*(self.T-self.tau[i]))*Delta_I[i] for i in range(len(self.tau)))
+        forth_term = -self.m_1/self.rho*self.Theta_i(self.T/self.n)*np.exp(-self.beta*self.T)
+        return first_term + second_term + third_term + forth_term
         
-    def Delta_X_dyn_t():
-        return None
+    def Delta_X_dyn_t(self, t):
+        dt = self.T/self.n
+        Delta_I = (self.iota_s - self.iota_c)*self.Delta_N
+        first_term = -self.m_1*self.phi_ita(t)*self.Theta_i(t)*np.exp(-self.beta*t)*dt
+        second_term = (sum((1-self.nu)*self.Delta_N[i]/(2+self.rho*(self.T-self.tau[i])) for i in range(t)))*self.rho*dt
+        third_term = (sum((2+self.rho*(self.T-self.tau[i]) \
+                    *(1+self.zeta(self.ita*(self.T-self.tau[i])+self.nu*self.rho*(self.T-self.tau[i]) \
+                    *self.omega(self.ita*(self.T-self.tau[i])))))/(2+self.rho*(self.T-self.tau[i]))*Delta_I[i] for i in range(len(t))))*self.m_1/2*dt
+        forth_term = -(self.Theta_i(t)*self.Phi_ita(self.tau[t], t) \
+                    +sum(self.Theta_i(i)*self.Phi_ita(self.tau[i],self.tau[i+1]) for i in range(0, t/self.n-1)))*self.rho*self.m_1*dt
+        fifth_term = (1+self.rho*(self.T-t))/(2+self.rho*(self.T-t))*(self.m_1 \
+                    /self.rho*self.Delta_I[t]-(1-self.nu)*self.Delta_N[t])
+        sixth_term = self.m_1/(2*self.rho)*(self.nu*self.rho-self.ita)*(self.rho*(self.T-t)**2 \
+                    *self.omega(self.ita*(self.T-t)))/(2+self.rho*(self.T-t))*Delta_I[t]
+        return (first_term + second_term + third_term + forth_term + fifth_term + sixth_term)/(1 - self.epsilon)
 
 if __name__ == '__main__':
     data = {'q':100,'T':1,'n':10,'x_0':-500,'nu':0.3,'epsilon':0.3,'rho':25,'iota_c':2,'kappa_inf':12, \
             'ita':0,'m_1':50,'m_2':100,'alpha_tilda':5,'alpha_2':5,'beta':20}
-    cost = Cost()
+    cost = MIH()
     cost.set_up(data)
     print(cost.Cost_t(0.5, -200, 10, 100, 10, 10))
