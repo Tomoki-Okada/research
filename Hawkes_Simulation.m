@@ -1,4 +1,4 @@
-function Seqs = Hawkes_Simulation(mu1, mu2, a11, a12, a21, a22, w)
+function Hawkes_Simulation(mu, A, w)
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %
@@ -23,8 +23,12 @@ nSeg = 5;
 nNum = options.N/nSeg;
 
 disp('Fast simulation of Hawkes processes with exponential kernel')
-para.mu = [mu1; mu2];
-para.A = [a11, a12; a21, a22];
+para.mu = mu;
+para.A = A;
 para.A = reshape(para.A, [D, 1, D]);
 para.w = w;
 Seqs = SimulationFast_Thinning_ExpHP(para, options);
+Time = Seqs.Time;
+Mark = Seqs.Mark;
+csvwrite(Time.csv,Time);
+csvwrite(Mark.csv,Mark);
