@@ -30,5 +30,5 @@ para.w = w;
 Seqs = SimulationFast_Thinning_ExpHP(para, options);
 Time = Seqs.Time;
 Mark = Seqs.Mark;
-csvwrite(Time.csv,Time);
-csvwrite(Mark.csv,Mark);
+csvwrite("Time.csv",Time);
+csvwrite("Mark.csv",Mark);
