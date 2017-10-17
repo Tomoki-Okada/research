@@ -1,12 +1,12 @@
-function Seqs = Hawkes_Simulation(mu, A, w)
+function Seqs = Hawkes_Simulation(mu1, mu2, a11, a12, a21, a22, w)
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %
 % Haweks過程をfast thning methodでシミュレーションするプログラム
 %
 % インプット:
-% mu - 2*1のbase intensityベクトル
-% A - 2*2のintensityジャンプ行列
+% mu = [mu1; mu2] - 2*1のbase intensityベクトル
+% A = [a11, a22; a21, a22] - 2*2のintensityジャンプ行列
 % w - intenstyの減衰強度
 %
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -23,8 +23,8 @@ nSeg = 5;
 nNum = options.N/nSeg;
 
 disp('Fast simulation of Hawkes processes with exponential kernel')
-para.mu = mu;
-para.A = A;
+para.mu = [mu1; mu2];
+para.A = [a11, a12; a21, a22];
 para.A = reshape(para.A, [D, 1, D]);
 para.w = w;
 Seqs = SimulationFast_Thinning_ExpHP(para, options);
