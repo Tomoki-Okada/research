@@ -12,8 +12,8 @@ function Hawkes_Simulation(mu, A, w)
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 options.N = 50; % the number of sequences
-options.Nmax = 100; % the maximum number of events per sequence
-options.Tmax = 100; % the maximum size of time window
+options.Nmax = 500; % the maximum number of events per sequence
+options.Tmax = 1; % the maximum size of time window
 options.tstep = 0.2;% the step length for computing sup intensity
 options.M = 50; % the number of steps
 options.GenerationNum = 5; % the number of generations
@@ -28,7 +28,10 @@ para.A = A;
 para.A = reshape(para.A, [D, 1, D]);
 para.w = w;
 Seqs = SimulationFast_Thinning_ExpHP(para, options);
-Time = Seqs.Time;
-Mark = Seqs.Mark;
-csvwrite("Time.csv",Time);
-csvwrite("Mark.csv",Mark);
+data = [];
+for i=1:options.N
+    Time = Seqs(i).Time.';
+    Mark = Seqs(i).Mark.';
+    data = [data; [i, i]; [Time, Mark]];
+end   
+csvwrite("simulation.csv",data);
