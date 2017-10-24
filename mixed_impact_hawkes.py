@@ -7,37 +7,82 @@ Created on Fri Oct 13 15:10:03 2017
 """
 
 import numpy as np
+import pandas as pd
 from scipy.integrate import quad
 
 class MIH():
 
-    def set_up(self, data):
+    def parameter_set_up(self, para):
         """
         パラメータのセットアップ
         """
-        self.q = data['q']
-        self.T = data['T']
-        self.n = data['n']
-        self.x_0 = data['x_0']
-        self.delta_0 = data['delta_0']
-        self.D_0 = data['D_0']
-        self.nu = data['nu']
-        self.epsilon = data['epsilon']
-        self.rho = data['rho']
-        self.iota_s = data['iota_s']
-        self.iota_c = data['iota_c']
-        self.kappa_inf = data['kappa_inf']
-        self.ita = data['ita']
-        self.m_1 = data['m_1']
-        self.m_2 = data['m_2']
-        self.alpha_tilda = data['alpha_tilda']
-        self.alpha_2 = data['alpha_2']
-        self.beta = data['beta']
-        self.Delta_N = [0,3,5,3,-1,-0,1,3,7,-1,3]
-        self.tau = [0,1,2,3,4,5,6,7,8,9,10]
-        self.kappa_plus = [2,4,2,4,5,6,4,8,8,2,1]
-        self.kappa_minus = [2,4,4,6,2,4,7,8,2,4,2]
-    
+        self.q = para['q']
+        self.T = 1
+        self.n = 10
+        self.dt = self.T/self.n
+        self.inter_periods = self.n - 2
+        self.x_0 = para['x_0']
+        self.delta_0 = para['delta_0']
+        self.D_0 = para['D_0']
+        self.nu = para['nu']
+        self.epsilon = para['epsilon']
+        self.rho = para['rho']
+        self.iota_s = para['iota_s']
+        self.iota_c = para['iota_c']
+        self.kappa_inf = para['kappa_inf']
+        self.ita = 0
+        self.m_1 = para['m_1']
+        self.m_2 = para['m_2']
+        self.alpha = np.array([[self.iota_s, self.iota_c],[self.iota_c, self.iota_s]])
+        self.alpha_tilda = para['alpha_tilda']
+        self.alpha_2 = para['alpha_2']
+        self.beta = para['beta']
+
+    def csv_load(self, path):
+        self.event_data = pd.read_csv(path, names = ['time', 'mark'])
+        
+    def data_setup(self):
+        def Delta_N(data):
+            _Delta_N = []
+            for i in range(1, 11):
+                block = data[0.1 * (i-1) <= self.event_data['time']][self.event_data['time'] < 0.1*i]
+                N_plus = len(block[block['mark'] == 1])
+                N_minus = len(block[block['mark'] == 2])
+                N = N_plus - N_minus
+                _Delta_N.append(N)
+            return _Delta_N
+        
+        def Intensity(t, s):
+            """
+            input:
+                lambda_0:2次元ベース強度
+                alpha:2×2次元ndarray行列
+                beta:2×2次ndarray元行列
+                t:2次元の生起時間多重リスト
+                s:時刻
+            output:
+                時刻sでのintensity
+            """
+            intensity = np.zeros(2)
+            lambda_0 = [self.kappa_inf, self.kappa_inf]
+            for m in range(2):
+                intensity[m] += lambda_0[m]
+                for n in range(2):
+                    for i in range(len(t[n])):
+                        if t[n][i] < s: 
+                            intensity[m] += self.alpha[n,m] * np.exp(-self.beta[n,m]*(s-t[n][i]))
+            return intensity
+        
+        intensity = []
+        for tau in range(1, 11):
+            intensity.append(Intensity(data['time'], tau))
+            intensity = np.array(intensity)
+        
+        self.Delta_N = Delta_N(self.event_data)
+        self.tau = list(len(1,11))
+        self.kappa_plus = intensity[:,0]
+        self.kappa_minus = intensity[:,1]
+                
     def zeta(self, y):
         if y == 0:
             return 1
@@ -115,7 +160,7 @@ class MIH():
                     +self.e(self.T-t)*Sigma+self.g(self.T-t)
         return (first_block + second_block + third_block + forth_block)/self.q
 
-#==============================================================================
+#================================================================================================================================
 
     def phi_ita(self, t):
         return 1/(2*(2+self.rho*(self.T-t)))*(1+np.exp(-self.ita*(self.T-t)) \
@@ -149,15 +194,24 @@ class MIH():
             _sum += np.exp(self.beta*self.tau[k])*Delta_I[i]
         return _sum
         
-    def Delta_X_0_OW(self):
-        return -self.x_0/(2*self.rho*self.T)
-    
-    def Delta_X_T_OW(self):
-        return -self.x_0/(2*self.rho*self.T)
+    def Delta_X_OW(self): 
+        """
+        OWモデルの最適執行戦略
+        """  
+        def Delta_X_0_OW():
+            return -self.x_0/(2+self.rho*self.T)
         
-    def Delta_X_t_OW(self):
-        dt = self.T/self.n
-        return -self.rho*self.x_0*dt/(2+self.rho*self.T)
+        def Delta_X_T_OW():
+            return -self.x_0/(2+self.rho*self.T)
+            
+        def Delta_X_t_OW():
+            dt = self.T/self.n
+            return -self.rho*self.x_0*dt/(2+self.rho*self.T)
+        
+        _Delta_X_OW = Delta_X_t_OW() * np.ones(self.inter_periods)
+        _Delta_X_OW = np.append(Delta_X_0_OW(), _Delta_X_OW)
+        _Delta_X_OW = np.append(_Delta_X_OW, Delta_X_T_OW())
+        return _Delta_X_OW        
            
     def Delta_X_trend_0(self):
         return (self.delta_0*self.m_1/2*self.rho*(2+self.rho*self.T*(1+self.zeta(self.ita*self.T) \
@@ -215,3 +269,12 @@ if __name__ == '__main__':
     cost = MIH()
     cost.set_up(data)
     print(cost.Cost_t(0.5, -200, 10, 100, 10, 10))
+    
+    mih = MIH()
+    mih.n = 10
+    mih.T = 1
+    mih.inter_periods = 9
+    mih.rho = 20
+    mih.x_0 = -500
+    mih.Delta_X_OW()
+    
