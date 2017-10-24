@@ -1,4 +1,4 @@
-function Hawkes_Simulation(mu, A, w)
+function data = Hawkes_Simulation(mu, A, w)
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %
@@ -28,10 +28,14 @@ para.A = A;
 para.A = reshape(para.A, [D, 1, D]);
 para.w = w;
 Seqs = SimulationFast_Thinning_ExpHP(para, options);
-data = [];
-for i=1:options.N
-    Time = Seqs(i).Time.';
-    Mark = Seqs(i).Mark.';
-    data = [data; [i, i]; [Time, Mark]];
-end   
-csvwrite("simulation.csv",data);
+
+%data = []; 
+%for i=1:options.N
+%    Time = Seqs(i).Time.';
+%    Mark = Seqs(i).Mark.';
+%    sim = [Time, Mark];
+%    count = aggregator(sim);
+%    temp = [(zeros(10,1) + i), count];
+%    data = [data; temp];
+%end
+%csvwrite("simulation.csv",data)
