@@ -12,33 +12,32 @@ from scipy.integrate import quad
 
 class MIH():
 
-    def parameter_set_up(self, para):
+    def parameter_setup(self):
         """
         パラメータのセットアップ
         """
-        self.q = para['q']
+        self.q = 100
         self.T = 1
         self.n = 10
         self.tau = [self.T/self.n * i for i in range(self.n + 1)]
         self.dt = self.T/(self.n-1)
-        self.inter_periods = self.n - 2
-        self.x_0 = para['x_0']
-        self.delta_0 = para['delta_0']
-        self.D_0 = para['D_0']
-        self.nu = para['nu']
-        self.epsilon = para['epsilon']
-        self.rho = para['rho']
-        self.iota_s = para['iota_s']
-        self.iota_c = para['iota_c']
-        self.kappa_inf = para['kappa_inf']
-        self.ita = 0
-        self.m_1 = para['m_1']
-        self.m_2 = para['m_2']
+        self.inter_periods = self.n - 1
+        self.x_0 = -500
+        self.delta_0 = 0
+        self.D_0 = 0.1
+        self.nu = 0.3
+        self.epsilon = 0.3
+        self.rho = 30
+        self.iota_s = 16
+        self.iota_c = 2
+        self.kappa_inf = 12
+#        self.m_2 = para['m_2']
         self.A = np.array([[self.iota_s, self.iota_c],[self.iota_c, self.iota_s]])
         self.alpha = self.iota_s - self.iota_c
-        self.alpha_tilda = para['alpha_tilda']
-        self.alpha_2 = para['alpha_2']
-        self.beta = para['beta']
+#        self.alpha_tilda = para['alpha_tilda']
+#        self.alpha_2 = para['alpha_2']
+        self.beta = 20
+        self.ita = self.beta - self.alpha
 
     def csv_load(self, path):
         self.event_data = pd.read_csv(path, names = ['time', 'mark'])
@@ -92,10 +91,11 @@ class MIH():
             intensity = np.vstack((intensity, Intensity(time_list(), tau_i)))
         
         self.Delta_N = Delta_N()
-        self.Delta_I = (self.iota_s - self.iota_c) * self.Delta_N
+        self.Delta_I = (self.iota_s - self.iota_c) * np.sign(self.Delta_N)
         self.kappa_plus = intensity[:,0]
         self.kappa_minus = intensity[:,1]
         self.delta_t = self.kappa_plus - self.kappa_minus
+        self.m_1 = sum(self.Delta_N)/10
                 
     def zeta(self, y):
         if y == 0:
@@ -296,37 +296,60 @@ class MIH():
 
     def special_Delta_X_dyn_tau(self, t):
         k = int(t/0.1)
-        term = (-1)*(1+self.rho*(self.T-self.tau[k]))/(2+self.rho*(self.T-self.tau[k]))*(1-self.nu)*self.Delta_N(k)
+        term = (-1)*(1+self.rho*(self.T-self.tau[k]))/(2+self.rho*(self.T-self.tau[k]))*(1-self.nu)*self.Delta_N[k]
         return term/(1-self.epsilon)
-
+        
+    def analysis(self):
+        for i in range(1,11):
+            self.parameter_setup()
+            path = 'data/sim' + str(i) + '.csv'
+            self.csv_load(path)
+            self.data_setup()
+            X = {}
+            X['N'] = self.Delta_N
+            for j in range(5):
+                dynamic = [self.Delta_X_dyn_tau(k*0.1) for k in range(10)]
+                dynamic.append(-sum(dynamic))
+#                X['rho=' + str(self.rho)] = self.Delta_X_OW() + self.Delta_X_trend() + dynamic
+                X['rho=' + str(self.rho)] = self.Delta_X_trend() + dynamic
+                self.rho = self.rho - 5
+            df = pd.DataFrame(X)
+            df.to_csv('result/output' + str(i) + '.csv')      
+                
 if __name__ == '__main__':
-    data = {'q':100,'T':1,'n':10,'x_0':-500,'nu':0.3,'epsilon':0.3,'rho':25,'iota_c':2,'kappa_inf':12, \
-            'ita':0,'m_1':50,'m_2':100,'alpha_tilda':5,'alpha_2':5,'beta':20}
-    cost = MIH()
-    cost.set_up(data)
-    print(cost.Cost_t(0.5, -200, 10, 100, 10, 10))
-    
     mih = MIH()
-    mih.n = 10
-    mih.T = 1
-    mih.inter_periods = 9
-    mih.rho = 25
-    mih.beta = 20
-    mih.x_0 = -500
-    mih.ita = 0
-    mih.nu = 0.3
-    mih.epsilon = 0.3
-    mih.delta_0 = 0
-    mih.m_1 = 50
-    mih.dt = 1/9
-    mih.q = 100
-    mih.D_0 = 0.1
-    mih.tau = [mih.T/mih.n * i for i in range(mih.n + 1)]
-    mih.kappa_inf = 12
-    mih.iota_s = 16
-    mih.iota_c = 2
-    mih.A = np.array([[mih.iota_s, mih.iota_c],[mih.iota_c, mih.iota_s]])
-    mih.csv_load('test.csv')
+    mih.analysis()
+
+"""
+    mih = MIH()
+    mih.parameter_setup()
+    mih.csv_load('data/sim6.csv')
     mih.data_setup()
-    mih.Delta_X_OW()
+    X = {}
+    X['N'] = self.Delta_N
+    for i in range(5):
+        dynamic = [mih.Delta_X_dyn_tau(i*0.1) for i in range(10)]
+        dynamic.append(-sum(dynamic))
+        X['rho=' + str(mih.rho)] = mih.Delta_X_OW() + mih.Delta_X_trend() + dynamic
+        mih.rho = mih.rho - 5
+    df = pd.DataFrame(X)
+    df.to_csv('result/output' + str + '.csv')    
+    
+    X = {}
+    for i in range(3):
+        mih.rho = mih.rho - 5 * i
+        dynamic = [mih.Delta_X_dyn_tau(i*0.1) for i in range(10)]
+        dynamic.append(-sum(dynamic))
+        X[i] = mih.Delta_X_OW() + mih.Delta_X_trend() + dynamic
+    
+    df = pd.DataFrame(X)
+    dX = df[1]
+    remaining_order = []
+    remaining_order.append(mih.x_0)
+    for i in range(len(dX)):
+        remaining_order.append(remaining_order[i]+dX[i])
+"""
+    
+
+    
     
