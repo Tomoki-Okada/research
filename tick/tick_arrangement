@@ -1,0 +1,115 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+"""
+Created on Mon Nov 27 13:35:18 2017
+
+@author: okadatomoki
+"""
+import numpy as np
+import pandas as pd
+import datetime
+import time
+
+tick_data = pd.read_csv('20120104.csv', header=None)
+
+# タイムスタンプのdatetime化、unix timeへ変換
+date = tick_data[1]
+_time = tick_data[7]
+sec = tick_data[9]
+
+time_stamp = []
+unix_time = []
+for i in range(len(tick_data)):
+    year = int(str(date[i])[:4])
+    month = int(str(date[i])[4:6])
+    day = int(str(date[i])[6:])
+    hour = int(str(_time[i])[:-2])
+    minute = int(str(_time[i])[-2:])
+    second = sec[i]
+    d = datetime.datetime(year, month, day, hour, minute, second)
+    time_stamp.append(d)
+    unix_time.append(time.mktime(d.timetuple()))
+
+# pandas series化
+time_stamp_se = pd.Series(time_stamp)    
+unix_time_se = pd.Series(unix_time)
+        
+# 仲値の計算
+best_ask = tick_data[27]
+best_bid = tick_data[16]
+mid_price = (best_ask + best_bid)/2
+mid_price = mid_price.dropna()
+
+# データの結合(タイムスタンプ+ユニックスタイム+仲値)
+df = pd.concat([time_stamp_se, unix_time_se, mid_price], axis=1)
+df.columns = ['time_stamp', 'unix_time', 'mid_price']
+
+# 東証の開場時間のデータのみを抽出
+zenba_from = datetime.datetime(year, month, day, 9)
+zenba_to = datetime.datetime(year, month, day, 11, 30)
+goba_from = datetime.datetime(year, month, day, 12, 30)
+goba_to = datetime.datetime(year, month, day, 15)
+zenba_filter = (zenba_from <= df['time_stamp']) & (df['time_stamp'] <= zenba_to)
+goba_filter = (goba_from <= df['time_stamp']) & (df['time_stamp'] <= goba_to)
+_filter = zenba_filter | goba_filter
+
+open_df = df[_filter]
+open_df = open_df.dropna()
+
+# インデックス整理
+open_df.index = range(len(open_df))
+
+# 仲値の上昇or下降する時のタイムスタンプを抽出
+upward_time = []
+upward_unix_time = []
+downward_time = []
+downward_unix_time = []
+
+for i in range(1,len(open_df)):
+    if open_df['mid_price'][i] - open_df['mid_price'][i-1] > 0:
+        upward_time.append(open_df['time_stamp'][i])
+        upward_unix_time.append(open_df['unix_time'][i])
+    elif open_df['mid_price'][i] - open_df['mid_price'][i-1] < 0:
+        downward_time.append(open_df['time_stamp'][i])
+        downward_unix_time.append(open_df['unix_time'][i])
+        
+# pandas series化
+upward_time_se = pd.Series(upward_time)
+upward_unix_time_se = pd.Series(upward_unix_time)
+downward_time_se = pd.Series(downward_time)
+downward_unix_time_se = pd.Series(downward_unix_time)
+
+# 集計
+upward_counts = pd.DataFrame({'counts': np.ones(len(upward_time_se))}, index=upward_time_se)
+downward_counts = pd.DataFrame({'counts': np.ones(len(downward_time_se))}, index=downward_time_se)
+upward_empirical_1min = upward_counts.resample('1min', how='sum')
+downward_empirical_1min = downward_counts.resample('1min', how='sum')
+
+# 同じ時間のデータを線形補間する
+for i in range(len(upward_unix_time_se)-1):
+    count = 1
+    for j in range(100):
+        if i+j+1 < len(downward_time_se):
+            if upward_unix_time_se[i] == upward_unix_time_se[i+j+1]:
+                count += 1
+            else:
+                break
+    if count > 1:
+        for k in range(1,count):
+            upward_unix_time_se[i+k] = upward_unix_time_se[i] + 1/count*k
+
+for i in range(len(downward_unix_time_se)-1):
+    count = 1
+    for j in range(100):
+        if i+j+1 < len(downward_unix_time_se):
+            if downward_unix_time_se[i] == downward_unix_time_se[i+j+1]:
+                count += 1
+            else:
+                break
+    if count > 1:
+        for k in range(1,count):
+            downward_unix_time_se[i+k] = downward_unix_time_se[i] + 1/count*k
+
+# csvの保存
+upward_unix_time_se.to_csv('upward_unix_time_se.csv', index=False)
+downward_unix_time_se.to_csv('downward_unix_time_se.csv', index=False)

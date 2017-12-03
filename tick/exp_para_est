@@ -1,0 +1,34 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+"""
+Created on Wed Nov 29 13:18:33 2017
+
+@author: okadatomoki
+"""
+
+import numpy as np
+import pandas as pd
+import os
+
+from tick.simulation import SimuHawkesExpKernels, SimuHawkesMulti
+from tick.inference import HawkesExpKern
+from tick.plot import plot_hawkes_kernels
+
+file_list = os.listdir('mid_fluc/')
+data = []
+for li in file_list:
+    upward = np.array(pd.read_csv('mid_fluc/' + li + '/upward.csv', header=None)[0])
+    downward = np.array(pd.read_csv('mid_fluc/' + li + '/downward.csv', header=None)[0])
+    if upward[0] >= downward[0]:
+        upward = upward- downward[0]
+        downward = downward - downward[0]
+    else:
+        upward = upward - upward[0]
+        downward = downward - upward[0]
+    data.append([upward, downward])
+    
+decays = [[10.0, 0.56], [0.56, 10.0]]
+learner = HawkesExpKern(decays, penalty='l1', C=10)
+learner.fit(data)
+
+plot_hawkes_kernels(learner, hawkes=hawkes_exp_kernels)

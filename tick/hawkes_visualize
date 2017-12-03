@@ -1,0 +1,62 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+"""
+Created on Thu Nov 30 21:06:08 2017
+
+@author: okadatomoki
+"""
+
+"""
+Simulation of 3-dimensional hawkes process
+==========================================
+"""
+import numpy as np
+import matplotlib.pyplot as plt
+
+from tick.simulation import SimuHawkesExpKernels
+from tick.plot import plot_point_process
+from tick.base import TimeFunction
+
+def impact_function(t, baseline, alpha, beta, impact_time, price_impact):
+    if t <= impact_time:
+        return baseline
+    else:
+        return baseline + price_impact * alpha * np.exp(-beta*(t - impact_time))
+
+n_nodes = 2  # dimension of the Hawkes process
+adjacency = 0.2 * np.ones((n_nodes, n_nodes))
+adjacency[0, 0] = 0
+adjacency[1, 1] = 0
+decays = 3 * np.ones((n_nodes, n_nodes))
+baseline = 0.5
+
+t_values1 = np.linspace(0, 100, 1001)
+y_values1 = np.array([baseline] * len(t_values1))
+baseline1 = TimeFunction((t_values1, y_values1))
+t_values2 = np.linspace(0, 100, 1001)
+y_values2 = np.array([impact_function(t, 0.5, 0.2, 3, 10, 30) for t in t_values2])
+baseline2 = TimeFunction((t_values2, y_values2))
+baselines = np.array([baseline1, baseline2])
+
+hawkes = SimuHawkesExpKernels(adjacency=adjacency, decays=decays,
+                              baseline=baselines, verbose=False, seed=2398)
+
+run_time = 100
+hawkes.end_time = run_time
+dt = 0.01
+hawkes.track_intensity(dt)
+hawkes.simulate()
+
+fig, ax = plt.subplots(n_nodes, 1, figsize=(16, 8), sharex=True, sharey=True)
+plot_point_process(hawkes, n_points=50000, t_min=0, ax=ax)
+t_values = np.linspace(0, hawkes.end_time, 1000)
+ax[0].plot(t_values, hawkes.get_baseline_values(0, t_values), label='baseline',
+        ls='--', lw=1)
+ax[1].plot(t_values, hawkes.get_baseline_values(1, t_values), label='baseline',
+        ls='--', lw=1)
+fig.tight_layout()
+plt.xlabel("time")
+plt.ylabel("intensity")
+plt.xlim([0,30])
+plt.ylim([0,5])
+plt.savefig("hawkes_simulation.png",format = 'png', dpi=300)

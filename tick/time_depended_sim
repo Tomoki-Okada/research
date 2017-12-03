@@ -1,0 +1,147 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+"""
+Created on Wed Nov 29 17:38:23 2017
+
+@author: okadatomoki
+"""
+
+import numpy as np
+import pandas as pd
+import matplotlib.pyplot as plt
+from tick.base import TimeFunction
+from tick.simulation import SimuHawkes, SimuHawkesExpKernels, HawkesKernelTimeFunc
+from tick.plot import plot_point_process
+
+def impact_function(t, baseline, alpha, beta, impact_time, price_impact):
+    if t <= impact_time:
+        return baseline
+    else:
+        return baseline + price_impact * alpha * np.exp(-beta*(t - impact_time))
+    
+def price_process(S_0, timestamps, t):
+    upward_timestamp = timestamps[0]
+    downward_timestamp = timestamps[1]
+    Nu_t = len(upward_timestamp[upward_timestamp <= t])
+    Nd_t = len(downward_timestamp[downward_timestamp <= t])
+    return S_0 + (Nu_t - Nd_t)
+
+def flatten(nested_list):
+    """2重のリストをフラットにする関数"""
+    return [e for inner_list in nested_list for e in inner_list]
+
+def exp_kernel(alpha, beta, t):
+    return alpha * np.exp(-beta*t)
+        
+n_nodes = 2
+baseline = 1.0
+alpha = 0.31
+beta = 0.56
+adjacency = np.array([[0, alpha], [alpha, 0]])
+decays = beta * np.ones((n_nodes, n_nodes))        
+impact_time = 10
+price_impact = 100
+S_0 = 2000
+
+t_values1 = np.linspace(0, 100, 101)
+y_values1 = np.array([baseline] * len(t_values1))
+baseline1 = TimeFunction((t_values1, y_values1))
+t_values2 = np.linspace(0, 100, 101)
+y_values2 = np.array([impact_function(t, baseline, alpha, beta, impact_time, price_impact) for t in t_values2])
+baseline2 = TimeFunction((t_values2, y_values2))
+baselines = np.array([baseline1, baseline2])
+
+t_values = np.linspace(0, 10, 101)
+y_values = [exp_kernel(alpha, beta, t) for t in t_values]
+tf1 = TimeFunction([t_values, y_values],
+                   inter_mode=TimeFunction.InterConstRight, dt=0.1)
+kernel1 = HawkesKernelTimeFunc(tf1)
+
+t_values = np.linspace(0, 10, 101)
+y_values = [0 for t in t_values]
+tf2 = TimeFunction([t_values, y_values],
+                   inter_mode=TimeFunction.InterConstRight, dt=0.1)
+kernel2 = HawkesKernelTimeFunc(tf2)
+
+S_sim = []
+
+for i in range(10000):
+    
+    hawkes = SimuHawkes(baseline=baselines,
+                                  seed=i, verbose=False)
+    hawkes.set_kernel(0, 0, kernel2)
+    hawkes.set_kernel(0, 1, kernel1)
+    hawkes.set_kernel(1, 0, kernel1)
+    hawkes.set_kernel(1, 1, kernel2)
+    
+    hawkes.track_intensity(0.1)
+    hawkes.end_time = 100
+
+
+    hawkes.simulate()
+    
+    timestamps = hawkes.timestamps
+    
+    S_t = []
+    T = np.linspace(0, 100, 1001)
+    for t in T:
+        S_t.append(price_process(S_0, timestamps, t))
+    
+    S = np.array(S_t)
+    permanent_impact = np.array(flatten([[0]*100, [price_impact]*901]))
+    S = S + permanent_impact
+    
+    S_sim.append(S)
+    
+S_df = pd.DataFrame(S_sim)
+S_ave = S_df.mean()
+S_df = S_df.T
+
+# 最初の100回を描画
+S_df_init = S_df.iloc[:, :100]
+S_df_init.index = T
+plt.plot(S_df_init)
+plt.xlabel("time")
+plt.ylabel("price")
+plt.ylim([980,1120])
+plt.savefig("kekka.png",format = 'png', dpi=300)
+
+'''
+S_ave.index = T
+plt.plot(S_ave)
+plt.xlabel("time")
+plt.ylabel("price")
+plt.ylim([980,1120])
+plt.savefig("kekka_ave.png",format = 'png', dpi=300)
+
+plt.plot(S_mu[0], label='mu=0.2')
+plt.plot(S_mu[1], label='mu=0.5')
+plt.plot(S_mu[2], label='mu=0.8')
+plt.plot(S_mu[3], label='mu=1.0')
+plt.legend()
+plt.xlabel("time")
+plt.ylabel("price")
+plt.savefig("mu_ave_conpare.png",format = 'png', dpi=300)
+
+'''
+
+
+
+
+
+ 
+'''
+fig, ax = plt.subplots(1, 1, figsize=(10, 4))
+
+plot_point_process(hawkes, ax=ax)
+
+ax.plot(t_values, hawkes.get_baseline_values(0, t_values), label='baseline',
+        ls='--', lw=1)
+ax.set_ylabel("$\lambda(t)$", fontsize=18)
+ax.legend()
+
+plt.title("Intensity Hawkes process with exponential kernel and varying "
+          "baseline")
+fig.tight_layout()
+plt.show()
+'''

@@ -51,8 +51,8 @@ class MIH():
                 Delta_Nのリスト
             """
             _Delta_N = []
-            for i in range(1, 11):
-                block = self.event_data[0.1 * (i-1) <= self.event_data['time']][self.event_data['time'] < 0.1*i]
+            for i in range(1, self.n+1):
+                block = self.event_data[self.T/self.n * (i-1) <= self.event_data['time']][self.event_data['time'] < self.T/self.n*i]
                 N_plus = len(block[block['mark'] == 1])
                 N_minus = len(block[block['mark'] == 2])
                 N = N_plus - N_minus
@@ -95,7 +95,7 @@ class MIH():
         self.kappa_plus = intensity[:,0]
         self.kappa_minus = intensity[:,1]
         self.delta_t = self.kappa_plus - self.kappa_minus
-        self.m_1 = sum(self.Delta_N)/10
+        self.m_1 = sum(self.Delta_N)/self.n
                 
     def zeta(self, y):
         if y == 0:
@@ -246,7 +246,7 @@ class MIH():
             second_term = self.q*self.D_0/(2+self.rho*self.T)*self.rho*self.dt
             return (first_term + second_term)/(1 - self.epsilon)
             
-        _Delta_X_trend = np.array([Delta_X_trend_t(0.1 * i) for i in range(1,10)])
+        _Delta_X_trend = np.array([Delta_X_trend_t(self.T/self.n * i) for i in range(1,self.n)])
         _Delta_X_trend = np.append(Delta_X_trend_0(), _Delta_X_trend)
         _Delta_X_trend = np.append(_Delta_X_trend, Delta_X_trend_T())
         return _Delta_X_trend
@@ -269,7 +269,7 @@ class MIH():
             return first_term + second_term + third_term + forth_term
             
         def Delta_X_dyn_t(t):
-            k = int(t/0.1)
+            k = round(t/(self.T/self.n))
             first_term = -self.m_1*self.phi_ita(t)*self.Theta_i(k)*np.exp(-self.beta*t)*self.dt
             second_term = sum([(1-self.nu)*self.Delta_N[i]/(2+self.rho*(self.T-self.tau[i])) for i in range(1,k+1)])*self.rho*self.dt
             third_term = (sum([(2+self.rho*(self.T-self.tau[i]) \
@@ -289,13 +289,13 @@ class MIH():
         return _Delta_X_dyn
         
     def Delta_X_dyn_tau(self, t):
-        k = int(t/0.1)
+        k = round(t/(self.T/self.n))
         first_term = (1+self.rho*(self.T-self.tau[k]))/(2+self.rho*(self.T-self.tau[k]))*(self.m_1/self.rho*self.Delta_I[k]-(1-self.nu)*self.Delta_N[k])
         second_term = self.m_1/(2*self.rho)*(self.nu*self.rho-self.ita)*self.rho*(self.T-self.tau[k])**2*self.omega(self.ita*(self.T-self.tau[k]))/(2+self.rho*(self.T-self.tau[k]))*self.Delta_I[k]
         return (first_term + second_term)/(1-self.epsilon)   
 
     def special_Delta_X_dyn_tau(self, t):
-        k = int(t/0.1)
+        k = round(t/(self.T/self.n))
         term = (-1)*(1+self.rho*(self.T-self.tau[k]))/(2+self.rho*(self.T-self.tau[k]))*(1-self.nu)*self.Delta_N[k]
         return term/(1-self.epsilon)
         
@@ -308,13 +308,14 @@ class MIH():
             X = {}
             X['N'] = self.Delta_N
             for j in range(5):
-                dynamic = [self.Delta_X_dyn_tau(k*0.1) for k in range(10)]
-                dynamic.append(-sum(dynamic))
+                self.dynamic = [self.Delta_X_dyn_tau(k*self.T/self.n) for k in range(self.n)]
+                self.dynamic.append(-sum(self.dynamic))
 #                X['rho=' + str(self.rho)] = self.Delta_X_OW() + self.Delta_X_trend() + dynamic
-                X['rho=' + str(self.rho)] = self.Delta_X_trend() + dynamic
+                X['rho=' + str(self.rho)] = self.Delta_X_trend() + self.dynamic
                 self.rho = self.rho - 5
-            df = pd.DataFrame(X)
-            df.to_csv('result/output' + str(i) + '.csv')      
+            self.df = pd.DataFrame(X)
+            self.df.to_csv('result/output' + str(i) + '.csv')     
+            
                 
 if __name__ == '__main__':
     mih = MIH()

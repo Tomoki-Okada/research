@@ -29,6 +29,12 @@ para.A = reshape(para.A, [D, 1, D]);
 para.w = w;
 Seqs = SimulationFast_Thinning_ExpHP(para, options);
 
+for i = 1:10
+    Time = Seqs(i).Time.';
+    Mark = Seqs(i).Mark.';
+    csvwrite(strcat('data1/sim', int2str(i), '.csv'),[Time,Mark]);
+end
+
 %data = []; 
 %for i=1:options.N
 %    Time = Seqs(i).Time.';
